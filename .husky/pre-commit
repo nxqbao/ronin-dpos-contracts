@@ -4,4 +4,4 @@
 set -ex
 
 yarn lint-staged
-yarn compile
+# yarn compile

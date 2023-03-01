@@ -13,3 +13,6 @@ refs/
 remix-compiler.config.js
 foundry
 .npmrc
+
+foundry_out
+cache_forge
