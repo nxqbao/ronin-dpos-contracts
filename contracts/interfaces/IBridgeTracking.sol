@@ -28,13 +28,12 @@ interface IBridgeTracking {
    */
   function getManyTotalBallots(uint256 _period, address[] calldata _bridgeOperators)
     external
-    view
     returns (uint256[] memory);
 
   /**
    * @dev Returns the total number of ballots of a bridge operator at the specific period `_period`.
    */
-  function totalBallotsOf(uint256 _period, address _bridgeOperator) external view returns (uint256);
+  function totalBallotsOf(uint256 _period, address _bridgeOperator) external returns (uint256);
 
   /**
    * @dev Handles the request once it is approved.

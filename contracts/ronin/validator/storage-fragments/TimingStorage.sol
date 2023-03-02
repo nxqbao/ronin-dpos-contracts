@@ -40,6 +40,9 @@ abstract contract TimingStorage is ITimingInfo, GlobalConfigConsumer {
 
   /**
    * @inheritdoc ITimingInfo
+   *
+   * @param _filled Returns `true` when the queried epoch has been wrapped up.
+   * @param _periodNumber Returns the period number in case the period has been wrapped up, otherwise returns 0.
    */
   function tryGetPeriodOfEpoch(uint256 _epoch) external view returns (bool _filled, uint256 _periodNumber) {
     return (_epoch <= epochOf(block.number) || _periodOf[_epoch] > 0, _periodOf[_epoch]);

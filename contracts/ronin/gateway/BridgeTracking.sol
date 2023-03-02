@@ -2,6 +2,8 @@
 
 pragma solidity ^0.8.9;
 
+// import "forge-std/Test.sol";
+import { console } from "forge-std/console.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "../../extensions/collections/HasBridgeContract.sol";
 import "../../extensions/collections/HasValidatorContract.sol";
@@ -137,12 +139,15 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
 
   /**
    * @inheritdoc IBridgeTracking
+   *
+   * @dev Always record new vote. New ballot means approved. There is no rejection ballot.
    */
   function recordVote(
     VoteKind _kind,
     uint256 _requestId,
     address _operator
   ) external override onlyBridgeContract skipOnUnstarted {
+    console.log("[>] hooked recordVote");
     uint256 _period = _validatorContract.currentPeriod();
     _trySyncBuffer();
     ReceiptTrackingInfo storage _receiptInfo = _receiptTrackingInfo[_kind][_requestId];
@@ -154,6 +159,8 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
       return;
     }
 
+    // When the receipt is approved already, increase the ballot immediately.
+    console.log("[ ]        recordVote: non-approved");
     _increaseBallot(_kind, _requestId, _operator, _period);
   }
 
@@ -171,7 +178,7 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
       return;
     }
 
-    _receiptInfo.voted[_operator] = true;
+    _slReceipt.voted[_operator] = true;
 
     uint256 _trackedPeriod = _receiptInfo.trackedPeriod;
 
