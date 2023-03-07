@@ -178,7 +178,7 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
       return;
     }
 
-    _slReceipt.voted[_operator] = true;
+    _receiptInfo.voted[_operator] = true;
 
     uint256 _trackedPeriod = _receiptInfo.trackedPeriod;
 
