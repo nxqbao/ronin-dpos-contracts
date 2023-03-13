@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import { console } from "forge-std/console.sol";
 import "@openzeppelin/contracts/access/AccessControlEnumerable.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
 import "../../extensions/GatewayV2.sol";
@@ -206,6 +207,8 @@ contract RoninGatewayV2 is
    * @inheritdoc IRoninGatewayV2
    */
   function depositFor(Transfer.Receipt calldata _receipt) external whenNotPaused onlyBridgeOperator {
+    console.log("hooked");
+    console.log(msg.sender);
     address _sender = msg.sender;
     _depositFor(_receipt, _sender, minimumVoteWeight(), minimumTrustedVoteWeight());
     _bridgeTrackingContract.recordVote(IBridgeTracking.VoteKind.Deposit, _receipt.id, _sender);
