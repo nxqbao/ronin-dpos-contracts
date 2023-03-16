@@ -15,6 +15,7 @@ import "../../precompile-usages/PCUPickValidatorSet.sol";
 import "./storage-fragments/CommonStorage.sol";
 import "./CandidateManager.sol";
 import "./EmergencyExit.sol";
+import { console } from "forge-std/Test.sol";
 
 abstract contract CoinbaseExecution is
   ICoinbaseExecution,
@@ -102,6 +103,8 @@ abstract contract CoinbaseExecution is
     uint256 _nextEpoch = _epoch + 1;
     uint256 _lastPeriod = currentPeriod();
 
+    console.log("hooked", _lastPeriod, _epoch, _periodEnding);
+
     if (_periodEnding) {
       _syncBridgeOperatingReward(_lastPeriod, _currentValidators);
       (
@@ -111,8 +114,10 @@ abstract contract CoinbaseExecution is
       _settleAndTransferDelegatingRewards(_lastPeriod, _currentValidators, _totalDelegatingReward, _delegatingRewards);
       _tryRecycleLockedFundsFromEmergencyExits();
       _recycleDeprecatedRewards();
+      console.log("[>] update:", _currentValidators.length);
       _slashIndicatorContract.updateCreditScores(_currentValidators, _lastPeriod);
       (_currentValidators, _revokedCandidates) = _syncValidatorSet(_newPeriod);
+      console.log("[>] reset:", _revokedCandidates.length);
       if (_revokedCandidates.length > 0) {
         _slashIndicatorContract.execResetCreditScores(_revokedCandidates);
       }

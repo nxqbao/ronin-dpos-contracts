@@ -7,6 +7,7 @@ import "../../extensions/collections/HasMaintenanceContract.sol";
 import "../../extensions/collections/HasValidatorContract.sol";
 import "../../extensions/consumers/PercentageConsumer.sol";
 import "../../libraries/Math.sol";
+import { console } from "forge-std/Test.sol";
 
 abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintenanceContract, PercentageConsumer {
   /// @dev Mapping from validator address => period index => whether bailed out before
@@ -56,6 +57,10 @@ abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintena
 
       _creditScore[_validator] = Math.addWithUpperbound(_creditScore[_validator], _actualGain, _maxCreditScore);
       _updatedCreditScores[_i] = _creditScore[_validator];
+
+      console.log("[-] update for %s (+%d score)", _validator, _actualGain);
+      console.log("\t\t\t\t\t\t\t   (balance: %d) (indicator: -%d)", _creditScore[_validator], _indicator);
+      console.log("\t\t\t\t\t\t\t   (jailed: %d) (maintain: %d)", _isJailedInPeriod, _isMaintainingInPeriod);
     }
 
     emit CreditScoresUpdated(_validators, _updatedCreditScores);
@@ -67,6 +72,8 @@ abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintena
       address _validator = _validators[_i];
       delete _creditScore[_validator];
       delete _updatedCreditScores[_i];
+
+      console.log("[-] reset for %s (+%d score)", _validator, _creditScore[_validator]);
     }
     emit CreditScoresUpdated(_validators, _updatedCreditScores);
   }
