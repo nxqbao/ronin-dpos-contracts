@@ -44,6 +44,8 @@ abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintena
     );
     uint256[] memory _updatedCreditScores = new uint256[](_validators.length);
 
+    console.log("[-] update credit score");
+    console.log("address,actualGain,balance,indicator,jailed,maintain");
     for (uint _i = 0; _i < _validators.length; _i++) {
       address _validator = _validators[_i];
 
@@ -58,9 +60,8 @@ abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintena
       _creditScore[_validator] = Math.addWithUpperbound(_creditScore[_validator], _actualGain, _maxCreditScore);
       _updatedCreditScores[_i] = _creditScore[_validator];
 
-      console.log("[-] update for %s (+%d score)", _validator, _actualGain);
-      console.log("\t\t\t\t\t\t\t   (balance: %d) (indicator: -%d)", _creditScore[_validator], _indicator);
-      console.log("\t\t\t\t\t\t\t   (jailed: %d) (maintain: %d)", _isJailedInPeriod, _isMaintainingInPeriod);
+      console.log("%s,%d,%d,,,", _validator, _actualGain, _creditScore[_validator]);
+      console.log("\t\t\t\t\t\t\t,,,%d,%d,%d", _indicator, _isJailedInPeriod, _isMaintainingInPeriod);
     }
 
     emit CreditScoresUpdated(_validators, _updatedCreditScores);
@@ -68,12 +69,14 @@ abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintena
 
   function execResetCreditScores(address[] calldata _validators) external override onlyValidatorContract {
     uint256[] memory _updatedCreditScores = new uint256[](_validators.length);
+    console.log("[-] reset score");
     for (uint _i = 0; _i < _validators.length; _i++) {
       address _validator = _validators[_i];
       delete _creditScore[_validator];
+
       delete _updatedCreditScores[_i];
 
-      console.log("[-] reset for %s (+%d score)", _validator, _creditScore[_validator]);
+      console.log("\t\t%s", _validator);
     }
     emit CreditScoresUpdated(_validators, _updatedCreditScores);
   }
@@ -140,6 +143,11 @@ abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintena
       uint256 cutOffPercentageAfterBailout_
     )
   {
+    console.log("[-] Config");
+    console.log("\t_gainCreditScore", _gainCreditScore);
+    console.log("\t_maxCreditScore", _maxCreditScore);
+    console.log("\t_bailOutCostMultiplier", _bailOutCostMultiplier);
+    console.log("\t_cutOffPercentageAfterBailou", _cutOffPercentageAfterBailout);
     return (_gainCreditScore, _maxCreditScore, _bailOutCostMultiplier, _cutOffPercentageAfterBailout);
   }
 
