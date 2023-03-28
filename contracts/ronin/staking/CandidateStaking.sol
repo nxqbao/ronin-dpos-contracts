@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.9;
 
+import { console } from "forge-std/Test.sol";
 import "../../extensions/consumers/GlobalConfigConsumer.sol";
 import "../../extensions/consumers/PercentageConsumer.sol";
 import "../../libraries/AddressArrayUtils.sol";
@@ -61,6 +62,7 @@ abstract contract CandidateStaking is BaseStaking, ICandidateStaking, GlobalConf
     address _bridgeOperatorAddr,
     uint256 _commissionRate
   ) external payable override nonReentrant {
+    uint gas = gasleft();
     if (isAdminOfActivePool(msg.sender)) revert ErrAdminOfAnyActivePoolForbidden(msg.sender);
     if (_commissionRate > _maxCommissionRate || _commissionRate < _minCommissionRate) revert ErrInvalidCommissionRate();
 
@@ -83,6 +85,7 @@ abstract contract CandidateStaking is BaseStaking, ICandidateStaking, GlobalConf
 
     _stake(_stakingPool[_consensusAddr], _poolAdmin, _amount);
     emit PoolApproved(_consensusAddr, _poolAdmin);
+    console.log("gas", gas - gasleft());
   }
 
   /**

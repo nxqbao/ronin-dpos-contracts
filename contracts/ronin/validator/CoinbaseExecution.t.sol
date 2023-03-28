@@ -2,7 +2,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import "./RoninValidatorSet.sol";
-import { BridgeTracking } from "../BridgeTracking.sol";
+import { BridgeTracking } from "../gateway/BridgeTracking.sol";
 
 contract CoinbaseExecutionTest is Test {
   uint256 devnetFork;

@@ -3,7 +3,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import "../mainchain/MainchainGatewayV2.sol";
-import "./RoninGatewayV2.sol";
+import "./gateway/RoninGatewayV2.sol";
 import "../libraries/Transfer.sol";
 import "./validator/RoninValidatorSet.sol";
 

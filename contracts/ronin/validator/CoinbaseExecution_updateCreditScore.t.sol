@@ -2,7 +2,7 @@ pragma solidity ^0.8.13;
 
 import "forge-std/Test.sol";
 import "./RoninValidatorSet.sol";
-import { BridgeTracking } from "../BridgeTracking.sol";
+import { BridgeTracking } from "../gateway/BridgeTracking.sol";
 import { RoninValidatorSet } from "./RoninValidatorSet.sol";
 import { SlashIndicator } from "../slash-indicator/SlashIndicator.sol";
 import { MockPrecompile } from "../../mocks/MockPrecompile.sol";

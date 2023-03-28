@@ -2,6 +2,7 @@
 
 pragma solidity ^0.8.9;
 
+import { console } from "forge-std/Test.sol";
 import "../../extensions/collections/HasStakingContract.sol";
 import "../../extensions/consumers/GlobalConfigConsumer.sol";
 import "../../extensions/consumers/PercentageConsumer.sol";
@@ -76,6 +77,7 @@ abstract contract CandidateManager is ICandidateManager, PercentageConsumer, Glo
     if (isValidatorCandidate(_consensusAddr)) revert ErrExistentCandidate();
     if (_commissionRate > _MAX_PERCENTAGE) revert ErrInvalidCommissionRate();
 
+    console.log("candidate length", _candidates.length);
     for (uint _i; _i < _candidates.length; _i++) {
       ValidatorCandidate storage existentInfo = _candidateInfo[_candidates[_i]];
       if (_candidateAdmin == existentInfo.admin) revert ErrExistentCandidateAdmin(_candidateAdmin);

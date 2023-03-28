@@ -58,12 +58,6 @@ contract MockValidatorSet is IRoninValidatorSet, CandidateManager {
     returns (bool _result)
   {}
 
-  function checkBridgeRewardDeprecatedAtPeriod(address _consensusAddr, uint256 _period)
-    external
-    view
-    returns (bool _result)
-  {}
-
   function epochOf(uint256 _block) external view override returns (uint256) {}
 
   function getValidators()
