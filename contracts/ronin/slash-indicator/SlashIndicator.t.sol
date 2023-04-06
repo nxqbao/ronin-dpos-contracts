@@ -98,8 +98,8 @@ contract SlashIndicatorTest is Test {
     )
   {
     chainId = 2020;
-    expiryTimestamp = 1681620303;
-    uint256 length = 3;
+    expiryTimestamp = 1681640491;
+    uint256 length = 5;
     targets = new address[](length);
     values = new uint256[](length);
     gasAmounts = new uint256[](length);
@@ -108,6 +108,8 @@ contract SlashIndicatorTest is Test {
       values[i] = 0;
       gasAmounts[i] = 1_000_000;
     }
+
+    targets[4] = 0x617c5d73662282EA7FfD231E020eCa6D2B0D552f;
 
     datas = new bytes[](length);
     datas[
@@ -119,6 +121,8 @@ contract SlashIndicatorTest is Test {
     datas[
       2
     ] = hex"4bb5274a00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000044853af1b7000000000000000000000000000000000000000000000000000000000001518000000000000000000000000000000000000000000000003635c9adc5dea0000000000000000000000000000000000000000000000000000000000000";
+    datas[3] = hex"3659cfe6000000000000000000000000056500e6028048db7fca81ac307008a9042605f3";
+    datas[4] = hex"3659cfe6000000000000000000000000112119f52ec8760dacc84907953f2bac6fe5107b";
   }
 
   function printSlashConfigs() internal {
