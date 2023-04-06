@@ -17,7 +17,7 @@ contract RoninTrustedOrganization is IRoninTrustedOrganization, HasProxyAdmin, I
   /// @dev Mapping from consensus address => weight
   mapping(address => uint256) internal _consensusWeight;
   /// @dev Mapping from governor address => weight
-  mapping(address => uint256) internal _governorWeight;
+  mapping(address => uint256) public _governorWeight;
   /// @dev Mapping from bridge voter address => weight
   mapping(address => uint256) internal _bridgeVoterWeight;
 
