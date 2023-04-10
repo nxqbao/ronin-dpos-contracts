@@ -4,20 +4,23 @@ import { RoninTrustedOrganization } from "../../multi-chains/RoninTrustedOrganiz
 import { IRoninTrustedOrganization } from "../../interfaces/IRoninTrustedOrganization.sol";
 import { SlashIndicator } from "./SlashIndicator.sol";
 import { Ballot } from "../../libraries/Ballot.sol";
+import { RoninValidatorSet } from "../validator/RoninValidatorSet.sol";
 
-contract SlashIndicatorTest is Test {
+contract Upgrade230406SlashConditionTest is Test {
   using stdStorage for StdStorage;
   uint256 fork;
   string RPC_URL = vm.envString("MAINNET_URL");
   RoninGovernanceAdmin GAContract;
   RoninTrustedOrganization TOContract;
   SlashIndicator SlashContract;
+  RoninValidatorSet ValidatorContract;
 
   function setUp() public {
     fork = vm.createSelectFork(RPC_URL);
 
     GAContract = RoninGovernanceAdmin(payable(0x946397deDFd2f79b75a72B322944a21C3240c9c3));
     TOContract = RoninTrustedOrganization(GAContract.roninTrustedOrganizationContract());
+    ValidatorContract = RoninValidatorSet(payable(0x617c5d73662282EA7FfD231E020eCa6D2B0D552f));
     SlashContract = SlashIndicator(0xEBFFF2b32fA0dF9C5C8C5d5AAa7e8b51d5207bA3);
     address TOLogicAddr = address(
       uint160(
@@ -60,6 +63,7 @@ contract SlashIndicatorTest is Test {
 
     console.log("===== PRE-CHECK =====");
     printSlashConfigs();
+    printValidatorSetConfigs();
     console.log("=====================");
 
     vm.prank(gov);
@@ -82,12 +86,13 @@ contract SlashIndicatorTest is Test {
 
     console.log("===== POST-CHECK =====");
     printSlashConfigs();
+    printValidatorSetConfigs();
     console.log("======================");
   }
 
   function prepareMainnetData()
     internal
-    pure
+    view
     returns (
       uint256 chainId,
       uint256 expiryTimestamp,
@@ -99,7 +104,7 @@ contract SlashIndicatorTest is Test {
   {
     chainId = 2020;
     expiryTimestamp = 1681640491;
-    uint256 length = 5;
+    uint256 length = 6;
     targets = new address[](length);
     values = new uint256[](length);
     gasAmounts = new uint256[](length);
@@ -109,7 +114,8 @@ contract SlashIndicatorTest is Test {
       gasAmounts[i] = 1_000_000;
     }
 
-    targets[4] = 0x617c5d73662282EA7FfD231E020eCa6D2B0D552f;
+    targets[4] = address(ValidatorContract);
+    targets[5] = address(ValidatorContract);
 
     datas = new bytes[](length);
     datas[
@@ -123,6 +129,9 @@ contract SlashIndicatorTest is Test {
     ] = hex"4bb5274a00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000044853af1b7000000000000000000000000000000000000000000000000000000000001518000000000000000000000000000000000000000000000003635c9adc5dea0000000000000000000000000000000000000000000000000000000000000";
     datas[3] = hex"3659cfe6000000000000000000000000056500e6028048db7fca81ac307008a9042605f3";
     datas[4] = hex"3659cfe6000000000000000000000000112119f52ec8760dacc84907953f2bac6fe5107b";
+    datas[
+      5
+    ] = hex"4bb5274a000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000244f2a693f000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000";
   }
 
   function printSlashConfigs() internal {
@@ -152,5 +161,10 @@ contract SlashIndicatorTest is Test {
     console.log("jailDurationForUnavailabilityTier2Threshold", jailDurationForUnavailabilityTier2Threshold);
     console.log("bridgeVotingThreshold", bridgeVotingThreshold);
     console.log("bridgeVotingSlashAmount", bridgeVotingSlashAmount);
+  }
+
+  function printValidatorSetConfigs() internal {
+    uint256 maxValidatorCandidate = ValidatorContract.maxValidatorCandidate();
+    console.log(maxValidatorCandidate, maxValidatorCandidate);
   }
 }
