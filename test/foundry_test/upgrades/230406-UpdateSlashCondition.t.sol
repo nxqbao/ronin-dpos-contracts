@@ -1,10 +1,10 @@
 import "forge-std/Test.sol";
-import { RoninGovernanceAdmin } from "../RoninGovernanceAdmin.sol";
-import { RoninTrustedOrganization } from "../../multi-chains/RoninTrustedOrganization.sol";
-import { IRoninTrustedOrganization } from "../../interfaces/IRoninTrustedOrganization.sol";
-import { SlashIndicator } from "./SlashIndicator.sol";
-import { Ballot } from "../../libraries/Ballot.sol";
-import { RoninValidatorSet } from "../validator/RoninValidatorSet.sol";
+import { RoninGovernanceAdmin } from "@contracts/ronin/RoninGovernanceAdmin.sol";
+import { RoninTrustedOrganization } from "@contracts/multi-chains/RoninTrustedOrganization.sol";
+import { IRoninTrustedOrganization } from "@contracts/interfaces/IRoninTrustedOrganization.sol";
+import { SlashIndicator } from "@contracts/ronin/slash-indicator/SlashIndicator.sol";
+import { Ballot } from "@contracts/libraries/Ballot.sol";
+import { RoninValidatorSet } from "@contracts/ronin/validator/RoninValidatorSet.sol";
 
 contract Upgrade230406SlashConditionTest is Test {
   using stdStorage for StdStorage;
