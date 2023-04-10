@@ -5,6 +5,7 @@ libs = ['node_modules', 'lib']
 test = 'test'
 cache_path  = 'cache_forge'
 gas_reports = ["RoninValidatorSet"]
+evm_version = 'istanbul'
 
 [rpc_endpoints]
 devnet = "${DEVNET_URL}"
