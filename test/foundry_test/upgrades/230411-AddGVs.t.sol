@@ -121,11 +121,18 @@ contract Upgrade230411AddGVTest is Test {
   function printTrustedOrgs() internal view {
     IRoninTrustedOrganization.TrustedOrganization[] memory _tos = TOContract.getAllTrustedOrganizations();
 
+    address[] memory _consensusList = new address[](1);
+
     for (uint i; i < _tos.length; i++) {
+      _consensusList[0] = _tos[i].consensusAddr;
+      address[] memory _bridgeOperatorList = ValidatorContract.getBridgeOperatorsOf(_consensusList);
+      address _operator = _bridgeOperatorList[0];
+
       console.log("> Trusted org #%d:", i);
-      console.log("     Consensus: %s", _tos[i].consensusAddr);
-      console.log("     Govenor:   %s", _tos[i].governor);
-      console.log("     Bridge:    %s", _tos[i].bridgeVoter);
+      console.log("     Consensus:      %s. Balance: %d RON.", _tos[i].consensusAddr, _tos[i].consensusAddr.balance );
+      console.log("     Govenor:        %s. Balance: %d RON.", _tos[i].governor, _tos[i].governor.balance);
+      console.log("     BridgeOperator: %s. Balance: %d RON.", _operator, _operator.balance);
+      console.log("     BridgeVoter:    %s. Balance: %d RON.", _tos[i].bridgeVoter, _tos[i].bridgeVoter.balance);
     }
   }
 }
