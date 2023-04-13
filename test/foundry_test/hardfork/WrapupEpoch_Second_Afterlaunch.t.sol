@@ -41,22 +41,10 @@ contract FirstWraupEpochTest is Test {
    * TEST FUNCTIONS
    */
 
-  function testWraupEpoch() external {
-    setHardforkBlock();
-    getValidators();
-    wrapUpEpoch(SkyMavisGVConsensus, 1);
-
-    submitBlockRewardsBulk(5000 wei);
+  function testWrapupEpoch_Second_Afterlaunch() external {
+    // submitBlockRewardsBulk(5000 wei);
     setFirstPeriodBlock();
     wrapUpEpoch(SkyMavisGVConsensus, 2);
-  }
-
-  function setHardforkBlock() internal {
-    console.log("[*] Set hardfork block");
-    uint256 hardforkBlock = 23155200 - 1;
-    uint256 hardforkTimestamp = 1681288482; // Wed Apr 12 2023 08:34:42 GMT+0000
-
-    __setBlock(hardforkBlock, hardforkTimestamp);
   }
 
   function setFirstPeriodBlock() internal {
