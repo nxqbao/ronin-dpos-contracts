@@ -5,6 +5,7 @@ import { IRoninTrustedOrganization } from "@contracts/interfaces/IRoninTrustedOr
 import { SlashIndicator } from "@contracts/ronin/slash-indicator/SlashIndicator.sol";
 import { Ballot } from "@contracts/libraries/Ballot.sol";
 import { RoninValidatorSet } from "@contracts/ronin/validator/RoninValidatorSet.sol";
+import "@contracts/extensions/collections/HasContracts.sol";
 
 contract Upgrade230406SlashConditionTest is Test {
   using stdStorage for StdStorage;
@@ -19,7 +20,7 @@ contract Upgrade230406SlashConditionTest is Test {
     fork = vm.createSelectFork(RPC_URL);
 
     GAContract = RoninGovernanceAdmin(payable(0x946397deDFd2f79b75a72B322944a21C3240c9c3));
-    TOContract = RoninTrustedOrganization(GAContract.roninTrustedOrganizationContract());
+    TOContract = RoninTrustedOrganization(GAContract.getContract(ContractType.RONIN_TRUSTED_ORGANIZATION));
     ValidatorContract = RoninValidatorSet(payable(0x617c5d73662282EA7FfD231E020eCa6D2B0D552f));
     SlashContract = SlashIndicator(0xEBFFF2b32fA0dF9C5C8C5d5AAa7e8b51d5207bA3);
     address TOLogicAddr = address(

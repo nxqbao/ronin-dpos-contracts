@@ -3,13 +3,20 @@
 pragma solidity ^0.8.9;
 
 import { console } from "forge-std/Test.sol";
-import "../../extensions/collections/HasStakingContract.sol";
 import "../../extensions/consumers/GlobalConfigConsumer.sol";
 import "../../extensions/consumers/PercentageConsumer.sol";
 import "../../interfaces/validator/ICandidateManager.sol";
 import "../../interfaces/staking/IStaking.sol";
+import { HasStakingDeprecated } from "../../utils/DeprecatedSlots.sol";
+import "../../extensions/collections/HasContracts.sol";
 
-abstract contract CandidateManager is ICandidateManager, PercentageConsumer, GlobalConfigConsumer, HasStakingContract {
+abstract contract CandidateManager is
+  ICandidateManager,
+  PercentageConsumer,
+  GlobalConfigConsumer,
+  HasContracts,
+  HasStakingDeprecated
+{
   /// @dev Maximum number of validator candidate
   uint256 private _maxValidatorCandidate;
 
@@ -71,18 +78,22 @@ abstract contract CandidateManager is ICandidateManager, PercentageConsumer, Glo
     address payable _treasuryAddr,
     address _bridgeOperatorAddr,
     uint256 _commissionRate
-  ) external override onlyStakingContract {
+  ) external override onlyContract(ContractType.STAKING) {
     uint256 _length = _candidates.length;
     if (_length >= maxValidatorCandidate()) revert ErrExceedsMaxNumberOfCandidate();
     if (isValidatorCandidate(_consensusAddr)) revert ErrExistentCandidate();
     if (_commissionRate > _MAX_PERCENTAGE) revert ErrInvalidCommissionRate();
 
     console.log("candidate length", _candidates.length);
-    for (uint _i; _i < _candidates.length; _i++) {
+    for (uint _i; _i < _candidates.length; ) {
       ValidatorCandidate storage existentInfo = _candidateInfo[_candidates[_i]];
       if (_candidateAdmin == existentInfo.admin) revert ErrExistentCandidateAdmin(_candidateAdmin);
       if (_treasuryAddr == existentInfo.treasuryAddr) revert ErrExistentTreasury(_treasuryAddr);
       if (_bridgeOperatorAddr == existentInfo.bridgeOperatorAddr) revert ErrExistentBridgeOperator(_bridgeOperatorAddr);
+
+      unchecked {
+        ++_i;
+      }
     }
 
     _candidateIndex[_consensusAddr] = ~_length;
@@ -100,11 +111,10 @@ abstract contract CandidateManager is ICandidateManager, PercentageConsumer, Glo
   /**
    * @inheritdoc ICandidateManager
    */
-  function execRequestRenounceCandidate(address _consensusAddr, uint256 _secsLeft)
-    external
-    override
-    onlyStakingContract
-  {
+  function execRequestRenounceCandidate(
+    address _consensusAddr,
+    uint256 _secsLeft
+  ) external override onlyContract(ContractType.STAKING) {
     if (_isTrustedOrg(_consensusAddr)) revert ErrTrustedOrgCannotRenounce();
 
     ValidatorCandidate storage _info = _candidateInfo[_consensusAddr];
@@ -119,7 +129,7 @@ abstract contract CandidateManager is ICandidateManager, PercentageConsumer, Glo
     address _consensusAddr,
     uint256 _effectiveDaysOnwards,
     uint256 _commissionRate
-  ) external override onlyStakingContract {
+  ) external override onlyContract(ContractType.STAKING) {
     if (_candidateCommissionChangeSchedule[_consensusAddr].effectiveTimestamp != 0) {
       revert ErrAlreadyRequestedUpdatingCommissionRate();
     }
@@ -146,8 +156,12 @@ abstract contract CandidateManager is ICandidateManager, PercentageConsumer, Glo
    */
   function getCandidateInfos() external view override returns (ValidatorCandidate[] memory _list) {
     _list = new ValidatorCandidate[](_candidates.length);
-    for (uint _i; _i < _list.length; _i++) {
+    for (uint _i; _i < _list.length; ) {
       _list[_i] = _candidateInfo[_candidates[_i]];
+
+      unchecked {
+        ++_i;
+      }
     }
   }
 
@@ -181,7 +195,7 @@ abstract contract CandidateManager is ICandidateManager, PercentageConsumer, Glo
    *
    */
   function _syncCandidateSet(uint256 _nextPeriod) internal returns (address[] memory _unsatisfiedCandidates) {
-    IStaking _staking = _stakingContract;
+    IStaking _staking = IStaking(getContract(ContractType.STAKING));
     uint256 _waitingSecsToRevoke = _staking.waitingSecsToRevoke();
     uint256 _minStakingAmount = _staking.minValidatorStakingAmount();
     uint256[] memory _selfStakings = _staking.getManySelfStakings(_candidates);
@@ -219,7 +233,9 @@ abstract contract CandidateManager is ICandidateManager, PercentageConsumer, Glo
         bool _topupDeadlineMissed = _info.topupDeadline != 0 && _info.topupDeadline <= block.timestamp;
         if (_revokingActivated || _topupDeadlineMissed) {
           _selfStakings[_i] = _selfStakings[--_length];
-          _unsatisfiedCandidates[_unsatisfiedCount++] = _addr;
+          unchecked {
+            _unsatisfiedCandidates[_unsatisfiedCount++] = _addr;
+          }
           _removeCandidate(_addr);
           continue;
         }
@@ -233,7 +249,9 @@ abstract contract CandidateManager is ICandidateManager, PercentageConsumer, Glo
           emit CommissionRateUpdated(_addr, _commisionRate);
         }
 
-        _i++;
+        unchecked {
+          _i++;
+        }
       }
     }
 

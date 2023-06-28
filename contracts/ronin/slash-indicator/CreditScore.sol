@@ -2,14 +2,23 @@
 
 pragma solidity ^0.8.9;
 
+import "../../interfaces/IMaintenance.sol";
+import "../../interfaces/validator/IRoninValidatorSet.sol";
 import "../../interfaces/slash-indicator/ICreditScore.sol";
-import "../../extensions/collections/HasMaintenanceContract.sol";
-import "../../extensions/collections/HasValidatorContract.sol";
+import "../../extensions/collections/HasContracts.sol";
 import "../../extensions/consumers/PercentageConsumer.sol";
 import "../../libraries/Math.sol";
+import { HasValidatorDeprecated, HasMaintenanceDeprecated } from "../../utils/DeprecatedSlots.sol";
+import { ErrUnauthorized, RoleAccess } from "../../utils/CommonErrors.sol";
 import { console } from "forge-std/Test.sol";
 
-abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintenanceContract, PercentageConsumer {
+abstract contract CreditScore is
+  ICreditScore,
+  HasContracts,
+  HasValidatorDeprecated,
+  HasMaintenanceDeprecated,
+  PercentageConsumer
+{
   /// @dev Mapping from validator address => period index => whether bailed out before
   mapping(address => mapping(uint256 => bool)) internal _checkBailedOutAtPeriod;
   /// @dev Mapping from validator address => credit score
@@ -33,11 +42,15 @@ abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintena
   /**
    * @inheritdoc ICreditScore
    */
-  function updateCreditScores(address[] calldata _validators, uint256 _period) external override onlyValidatorContract {
+  function updateCreditScores(
+    address[] calldata _validators,
+    uint256 _period
+  ) external override onlyContract(ContractType.VALIDATOR) {
+    IRoninValidatorSet _validatorContract = IRoninValidatorSet(msg.sender);
     uint256 _periodStartAtBlock = _validatorContract.currentPeriodStartAtBlock();
 
     bool[] memory _jaileds = _validatorContract.checkManyJailed(_validators);
-    bool[] memory _maintaineds = _maintenanceContract.checkManyMaintainedInBlockRange(
+    bool[] memory _maintaineds = IMaintenance(getContract(ContractType.MAINTENANCE)).checkManyMaintainedInBlockRange(
       _validators,
       _periodStartAtBlock,
       block.number
@@ -46,7 +59,7 @@ abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintena
 
     console.log("[-] update credit score");
     console.log("address,actualGain,balance,indicator,jailed,maintain");
-    for (uint _i = 0; _i < _validators.length; _i++) {
+    for (uint _i = 0; _i < _validators.length; ) {
       address _validator = _validators[_i];
 
       uint256 _indicator = getUnavailabilityIndicator(_validator, _period);
@@ -62,21 +75,29 @@ abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintena
 
       console.log("%s,%d,%d,,,", _validator, _actualGain, _creditScore[_validator]);
       console.log("\t\t\t\t\t\t\t,,,%d,%d,%d", _indicator, _isJailedInPeriod, _isMaintainingInPeriod);
+      unchecked {
+        ++_i;
+      }
     }
 
     emit CreditScoresUpdated(_validators, _updatedCreditScores);
   }
 
-  function execResetCreditScores(address[] calldata _validators) external override onlyValidatorContract {
+  function execResetCreditScores(
+    address[] calldata _validators
+  ) external override onlyContract(ContractType.VALIDATOR) {
     uint256[] memory _updatedCreditScores = new uint256[](_validators.length);
     console.log("[-] reset score");
-    for (uint _i = 0; _i < _validators.length; _i++) {
+    for (uint _i = 0; _i < _validators.length; ) {
       address _validator = _validators[_i];
       delete _creditScore[_validator];
 
       delete _updatedCreditScores[_i];
 
       console.log("\t\t%s", _validator);
+      unchecked {
+        ++_i;
+      }
     }
     emit CreditScoresUpdated(_validators, _updatedCreditScores);
   }
@@ -85,24 +106,22 @@ abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintena
    * @inheritdoc ICreditScore
    */
   function bailOut(address _consensusAddr) external override {
-    require(
-      _validatorContract.isValidatorCandidate(_consensusAddr),
-      "SlashIndicator: consensus address must be a validator candidate"
-    );
-    require(
-      _validatorContract.isCandidateAdmin(_consensusAddr, msg.sender),
-      "SlashIndicator: method caller must be a candidate admin"
-    );
+    IRoninValidatorSet _validatorContract = IRoninValidatorSet(getContract(ContractType.VALIDATOR));
+    if (!_validatorContract.isValidatorCandidate(_consensusAddr))
+      revert ErrUnauthorized(msg.sig, RoleAccess.VALIDATOR_CANDIDATE);
+
+    if (!_validatorContract.isCandidateAdmin(_consensusAddr, msg.sender))
+      revert ErrUnauthorized(msg.sig, RoleAccess.CANDIDATE_ADMIN);
 
     (bool _isJailed, , uint256 _jailedEpochLeft) = _validatorContract.getJailedTimeLeft(_consensusAddr);
-    require(_isJailed, "SlashIndicator: caller must be jailed in the current period");
+    if (!_isJailed) revert ErrCallerMustBeJailedInTheCurrentPeriod();
 
     uint256 _period = _validatorContract.currentPeriod();
-    require(!_checkBailedOutAtPeriod[_consensusAddr][_period], "SlashIndicator: validator has bailed out previously");
+    if (_checkBailedOutAtPeriod[_consensusAddr][_period]) revert ErrValidatorHasBailedOutPreviously();
 
     uint256 _score = _creditScore[_consensusAddr];
     uint256 _cost = _jailedEpochLeft * _bailOutCostMultiplier;
-    require(_score >= _cost, "SlashIndicator: insufficient credit score to bail out");
+    if (_score < _cost) revert ErrInsufficientCreditScoreToBailOut();
 
     _validatorContract.execBailOut(_consensusAddr, _period);
 
@@ -161,16 +180,17 @@ abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintena
   /**
    * @inheritdoc ICreditScore
    */
-  function getManyCreditScores(address[] calldata _validators)
-    public
-    view
-    override
-    returns (uint256[] memory _resultList)
-  {
+  function getManyCreditScores(
+    address[] calldata _validators
+  ) public view override returns (uint256[] memory _resultList) {
     _resultList = new uint256[](_validators.length);
 
-    for (uint _i = 0; _i < _resultList.length; _i++) {
+    for (uint _i = 0; _i < _resultList.length; ) {
       _resultList[_i] = _creditScore[_validators[_i]];
+
+      unchecked {
+        ++_i;
+      }
     }
   }
 
@@ -184,11 +204,7 @@ abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintena
   /**
    * @dev See `SlashUnavailability`.
    */
-  function _setUnavailabilityIndicator(
-    address _validator,
-    uint256 _period,
-    uint256 _indicator
-  ) internal virtual;
+  function _setUnavailabilityIndicator(address _validator, uint256 _period, uint256 _indicator) internal virtual;
 
   /**
    * @dev See `ICreditScore-setCreditScoreConfigs`.
@@ -199,8 +215,8 @@ abstract contract CreditScore is ICreditScore, HasValidatorContract, HasMaintena
     uint256 _bailOutMultiplier,
     uint256 _cutOffPercentage
   ) internal {
-    require(_gainScore <= _maxScore, "CreditScore: invalid credit score config");
-    require(_cutOffPercentage <= _MAX_PERCENTAGE, "CreditScore: invalid cut off percentage config");
+    if (_gainScore > _maxScore) revert ErrInvalidCreditScoreConfig();
+    if (_cutOffPercentage > _MAX_PERCENTAGE) revert ErrInvalidCutOffPercentageConfig();
 
     _gainCreditScore = _gainScore;
     _maxCreditScore = _maxScore;

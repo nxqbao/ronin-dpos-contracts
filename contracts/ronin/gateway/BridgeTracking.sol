@@ -5,11 +5,12 @@ pragma solidity ^0.8.9;
 // import "forge-std/Test.sol";
 import { console } from "forge-std/console.sol";
 import "@openzeppelin/contracts/proxy/utils/Initializable.sol";
-import "../../extensions/collections/HasBridgeContract.sol";
-import "../../extensions/collections/HasValidatorContract.sol";
+import "../../extensions/collections/HasContracts.sol";
 import "../../interfaces/IBridgeTracking.sol";
+import "../../interfaces/validator/IRoninValidatorSet.sol";
+import { HasBridgeDeprecated, HasValidatorDeprecated } from "../../utils/DeprecatedSlots.sol";
 
-contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializable, IBridgeTracking {
+contract BridgeTracking is HasBridgeDeprecated, HasValidatorDeprecated, HasContracts, Initializable, IBridgeTracking {
   struct PeriodVotingMetric {
     /// @dev Total requests that are tracked in the period. This value is 0 until the {_bufferMetric.requests[]} gets added into a period metric.
     uint256 totalRequests;
@@ -46,10 +47,19 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
   mapping(VoteKind => mapping(uint256 => ReceiptTrackingInfo)) internal _receiptTrackingInfo;
 
   modifier skipOnUnstarted() {
-    if (block.number < startedAtBlock) {
-      return;
-    }
+    _skipOnUnstarted();
     _;
+  }
+
+  /**
+   * @dev Returns the whole transaction in case the current block is less than start block.
+   */
+  function _skipOnUnstarted() private view {
+    if (block.number < startedAtBlock) {
+      assembly {
+        return(0, 0)
+      }
+    }
   }
 
   constructor() {
@@ -64,9 +74,17 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
     address _validatorContract,
     uint256 _startedAtBlock
   ) external initializer {
-    _setBridgeContract(_bridgeContract);
-    _setValidatorContract(_validatorContract);
+    _setContract(ContractType.BRIDGE, _bridgeContract);
+    _setContract(ContractType.VALIDATOR, _validatorContract);
     startedAtBlock = _startedAtBlock;
+  }
+
+  function initializeV2() external reinitializer(2) {
+    _setContract(ContractType.BRIDGE, ______deprecatedBridge);
+    _setContract(ContractType.VALIDATOR, ______deprecatedValidator);
+
+    delete ______deprecatedBridge;
+    delete ______deprecatedValidator;
   }
 
   /**
@@ -92,16 +110,18 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
   /**
    * @inheritdoc IBridgeTracking
    */
-  function getManyTotalBallots(uint256 _period, address[] calldata _bridgeOperators)
-    external
-    view
-    override
-    returns (uint256[] memory _res)
-  {
+  function getManyTotalBallots(
+    uint256 _period,
+    address[] calldata _bridgeOperators
+  ) external view override returns (uint256[] memory _res) {
     _res = new uint256[](_bridgeOperators.length);
     bool _isBufferCounted = _isBufferCountedForPeriod(_period);
-    for (uint _i = 0; _i < _bridgeOperators.length; _i++) {
+    for (uint _i = 0; _i < _bridgeOperators.length; ) {
       _res[_i] = _totalBallotsOf(_period, _bridgeOperators[_i], _isBufferCounted);
+
+      unchecked {
+        ++_i;
+      }
     }
   }
 
@@ -115,13 +135,16 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
   /**
    * @inheritdoc IBridgeTracking
    */
-  function handleVoteApproved(VoteKind _kind, uint256 _requestId) external override onlyBridgeContract skipOnUnstarted {
+  function handleVoteApproved(
+    VoteKind _kind,
+    uint256 _requestId
+  ) external override onlyContract(ContractType.BRIDGE) skipOnUnstarted {
     ReceiptTrackingInfo storage _receiptInfo = _receiptTrackingInfo[_kind][_requestId];
 
     // Only records for the receipt which not approved
     if (_receiptInfo.approvedPeriod == 0) {
       _trySyncBuffer();
-      uint256 _currentPeriod = _validatorContract.currentPeriod();
+      uint256 _currentPeriod = IRoninValidatorSet(getContract(ContractType.VALIDATOR)).currentPeriod();
       _receiptInfo.approvedPeriod = _currentPeriod;
 
       Request storage _bufferRequest = _bufferMetric.requests.push();
@@ -129,8 +152,12 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
       _bufferRequest.id = _requestId;
 
       address[] storage _voters = _receiptInfo.voters;
-      for (uint _i = 0; _i < _voters.length; _i++) {
+      for (uint _i = 0; _i < _voters.length; ) {
         _increaseBallot(_kind, _requestId, _voters[_i], _currentPeriod);
+
+        unchecked {
+          ++_i;
+        }
       }
 
       delete _receiptInfo.voters;
@@ -146,9 +173,9 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
     VoteKind _kind,
     uint256 _requestId,
     address _operator
-  ) external override onlyBridgeContract skipOnUnstarted {
+  ) external override onlyContract(ContractType.BRIDGE) skipOnUnstarted {
     console.log("[>] hooked recordVote");
-    uint256 _period = _validatorContract.currentPeriod();
+    uint256 _period = IRoninValidatorSet(getContract(ContractType.VALIDATOR)).currentPeriod();
     _trySyncBuffer();
     ReceiptTrackingInfo storage _receiptInfo = _receiptTrackingInfo[_kind][_requestId];
 
@@ -167,12 +194,7 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
   /**
    * @dev Increases the ballot for the operator at a period.
    */
-  function _increaseBallot(
-    VoteKind _kind,
-    uint256 _requestId,
-    address _operator,
-    uint256 _currentPeriod
-  ) internal {
+  function _increaseBallot(VoteKind _kind, uint256 _requestId, address _operator, uint256 _currentPeriod) internal {
     ReceiptTrackingInfo storage _receiptInfo = _receiptTrackingInfo[_kind][_requestId];
     if (_receiptInfo.voted[_operator]) {
       return;
@@ -184,18 +206,20 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
 
     // Do not increase ballot for receipt that is neither in the buffer, nor in the most current tracked period.
     // If the receipt is not tracked in a period, increase metric in buffer.
-    if (_trackedPeriod == 0) {
-      if (_bufferMetric.data.totalBallotsOf[_operator] == 0) {
-        _bufferMetric.data.voters.push(_operator);
+    unchecked {
+      if (_trackedPeriod == 0) {
+        if (_bufferMetric.data.totalBallotsOf[_operator] == 0) {
+          _bufferMetric.data.voters.push(_operator);
+        }
+        _bufferMetric.data.totalBallots++;
+        _bufferMetric.data.totalBallotsOf[_operator]++;
       }
-      _bufferMetric.data.totalBallots++;
-      _bufferMetric.data.totalBallotsOf[_operator]++;
-    }
-    // If the receipt is tracked in the most current tracked period, increase metric in the period.
-    else if (_trackedPeriod == _currentPeriod) {
-      PeriodVotingMetric storage _metric = _periodMetric[_trackedPeriod];
-      _metric.totalBallots++;
-      _metric.totalBallotsOf[_operator]++;
+      // If the receipt is tracked in the most current tracked period, increase metric in the period.
+      else if (_trackedPeriod == _currentPeriod) {
+        PeriodVotingMetric storage _metric = _periodMetric[_trackedPeriod];
+        _metric.totalBallots++;
+        _metric.totalBallotsOf[_operator]++;
+      }
     }
   }
 
@@ -220,6 +244,7 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
    * - The epoch after the buffer epoch is wrapped up.
    */
   function _trySyncBuffer() internal {
+    IRoninValidatorSet _validatorContract = IRoninValidatorSet(getContract(ContractType.VALIDATOR));
     uint256 _currentEpoch = _validatorContract.epochOf(block.number);
     if (_bufferMetric.lastEpoch < _currentEpoch) {
       (, uint256 _trackedPeriod) = _validatorContract.tryGetPeriodOfEpoch(_bufferMetric.lastEpoch + 1);
@@ -231,17 +256,25 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
       _metric.totalBallots += _bufferMetric.data.totalBallots;
 
       // Copy voters info and voters' ballot
-      for (uint _i = 0; _i < _bufferMetric.data.voters.length; _i++) {
+      for (uint _i = 0; _i < _bufferMetric.data.voters.length; ) {
         address _voter = _bufferMetric.data.voters[_i];
         _metric.totalBallotsOf[_voter] += _bufferMetric.data.totalBallotsOf[_voter];
         delete _bufferMetric.data.totalBallotsOf[_voter]; // need to manually delete each element, due to mapping
+
+        unchecked {
+          ++_i;
+        }
       }
 
       // Mark all receipts in the buffer as tracked. Keep total number of receipts and delete receipt details.
-      for (uint _i = 0; _i < _bufferMetric.requests.length; _i++) {
+      for (uint _i = 0; _i < _bufferMetric.requests.length; ) {
         Request storage _bufferRequest = _bufferMetric.requests[_i];
         ReceiptTrackingInfo storage _receiptInfo = _receiptTrackingInfo[_bufferRequest.kind][_bufferRequest.id];
         _receiptInfo.trackedPeriod = _trackedPeriod;
+
+        unchecked {
+          ++_i;
+        }
       }
 
       delete _bufferMetric.requests;
@@ -253,6 +286,7 @@ contract BridgeTracking is HasBridgeContract, HasValidatorContract, Initializabl
    * @dev Returns whether the buffer stats must be counted or not.
    */
   function _isBufferCountedForPeriod(uint256 _queriedPeriod) internal view returns (bool) {
+    IRoninValidatorSet _validatorContract = IRoninValidatorSet(getContract(ContractType.VALIDATOR));
     uint256 _currentEpoch = _validatorContract.epochOf(block.number);
     (bool _filled, uint256 _periodOfNextTemporaryEpoch) = _validatorContract.tryGetPeriodOfEpoch(
       _bufferMetric.lastEpoch + 1

@@ -1,5 +1,4 @@
 import '@typechain/hardhat';
-import '@nomiclabs/hardhat-waffle';
 import '@nomiclabs/hardhat-ethers';
 import 'hardhat-deploy';
 import '@nomicfoundation/hardhat-chai-matchers';
@@ -8,10 +7,11 @@ import 'hardhat-gas-reporter';
 import 'hardhat-contract-sizer';
 import '@solidstate/hardhat-4byte-uploader';
 import 'hardhat-storage-layout';
+import '@nomicfoundation/hardhat-foundry';
 
 import * as dotenv from 'dotenv';
 import { HardhatUserConfig, NetworkUserConfig, SolcUserConfig } from 'hardhat/types';
-
+import './src/tasks/generate-storage-layout';
 dotenv.config();
 
 const DEFAULT_MNEMONIC = 'title spike pink garlic hamster sorry few damage silver mushroom clever window';
@@ -93,7 +93,14 @@ const compilerConfig: SolcUserConfig = {
   settings: {
     optimizer: {
       enabled: true,
-      runs: 10,
+      runs: 200,
+    },
+    /// @dev see: https://github.com/Uniswap/v3-core/blob/main/hardhat.config.ts
+    metadata: {
+      // do not include the metadata hash, since this is machine dependent
+      // and we want all generated code to be deterministic
+      // https://docs.soliditylang.org/en/v0.8.17/metadata.html
+      bytecodeHash: 'none',
     },
   },
 };
@@ -101,6 +108,17 @@ const compilerConfig: SolcUserConfig = {
 const config: HardhatUserConfig = {
   solidity: {
     compilers: [compilerConfig],
+    overrides: {
+      'contracts/ronin/validator/RoninValidatorSet.sol': {
+        version: '0.8.17',
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 10,
+          },
+        },
+      },
+    },
   },
   typechain: {
     outDir: 'src/types',
@@ -140,6 +158,13 @@ const config: HardhatUserConfig = {
   // },
   mocha: {
     timeout: 100000, // 100s
+  },
+
+  contractSizer: {
+    alphaSort: true,
+    disambiguatePaths: false,
+    runOnCompile: true,
+    outputFile: './logs/contract_code_sizes.log',
   },
 };
 
